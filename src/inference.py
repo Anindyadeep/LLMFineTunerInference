@@ -46,7 +46,17 @@ class SimpleInference:
         tokenizer = AutoTokenizer.from_pretrained(peft_config.base_model_name_or_path)
         return model, tokenizer
     
-    def log_inference_tests(self, model, tokenizer, test_dataset, max_generation_token, device='cuda:0', using_notebook=True):
+    def log_inference_tests(
+        self,
+        model, 
+        tokenizer, 
+        test_dataset, 
+        max_generation_token, 
+        device='cuda:0', 
+        table_name=None, 
+        using_notebook=True, 
+        generation_config=None):
+        
         """
         test_dataset: This will be a dataset in HF format
         Track and log these after the table creation in an another table
@@ -62,6 +72,7 @@ class SimpleInference:
         # Do not forget to add eos token and padding to left and also truncation and padding
         # still have to research, where and why those are required
         """
+        table_name = 'Inference Results Table' if table_name is None else table_name
         if using_notebook:
             from tqdm.notebook import tqdm
         else:
@@ -89,7 +100,10 @@ class SimpleInference:
             # outputs = model.generate(**inputs, max_new_tokens=10)
 
             inputs = tokenizer(text, return_tensors="pt", return_token_type_ids=False).to(device)
-            outputs = model.generate(**inputs, max_new_tokens=max_generation_token)
+            if generation_config:
+                outputs = model.generate(**inputs, max_new_tokens=max_generation_token, generation_config=generation_config)
+            else:
+                outputs = model.generate(**inputs, max_new_tokens=max_generation_token)
             generated_text = tokenizer.decode(outputs[0]).split("### Assistant:")[1].strip()
 
             total_time = time.time() - start_time
@@ -98,4 +112,4 @@ class SimpleInference:
             final_gpu = self.get_gpu_usage()
 
             prediction_report.add_data(text, label, generated_text, total_time, final_ram, final_cpu, final_gpu)
-        self.run.log({'Text prediction samples': prediction_report})
+        self.run.log({table_name: prediction_report})
